@@ -1,18 +1,16 @@
 import os
-import shlex
+import re
 import subprocess
 
 
-# Function to rename and convert files in a specified directory
-def rename_and_convert_files_in_directory(input_path, output_path):
-    # order the filenames by name and loop through them
-    for filename in sorted(os.listdir(input_path)):
-        # split the filename into the name and extension
+def convert(input_folder, output_folder):
+    for filename in sorted(os.listdir(input_folder)):
         name, extension = os.path.splitext(filename)
+        if not extension.lower() in ['.mp3', '.wav']:
+            continue
 
-        # Grab the track title from ffmpeg
         try:
-            path = os.path.join(input_path, filename)
+            path = os.path.join(input_folder, filename)
             result = subprocess.run([
                 'ffprobe',
                 '-v',
@@ -24,45 +22,32 @@ def rename_and_convert_files_in_directory(input_path, output_path):
                 path
             ], stderr=subprocess.PIPE, stdout=subprocess.PIPE)
 
-            # Decode stdout to string and split into lines
             output_lines = result.stderr.decode('utf-8').strip().split('\n')
-            # Filter out empty lines and strip each line
             output_lines = [line.strip() for line in output_lines if line.strip()]
-            # Initialize title as None
             title = None
-            # Iterate through each line to find the title
             for line in output_lines:
                 if 'title' in line:
-                    # Extract title after 'title'
-                    title = line.split('title', 1)[1]
-                    # Strip non-alphanumeric characters from title
-                    title = ''.join(e for e in title if e.isalnum() or e.isspace())
-                    title = title.strip()
+                    pattern = r"title\s*:\s*(.+)"
+                    match = re.search(pattern, line)
+                    if match:
+                        title = match.group(1)
+                        print(title)
                     break
 
             if title is None:
                 print(f"No title found for {filename}")
-                title = name  # Fallback to filename without extension if no title found
+                title = name
         except subprocess.CalledProcessError as e:
             print(f"Error extracting title from file {path}: {e}")
             title = None
 
-        # if the file is not an mp3 or wav file, skip it
-        if filename.endswith(".mp3") or filename.endswith(".wav"):
-            try:
-                raw = f"{input_path}/{filename}"
-                processed = f"{output_path}/{title}.ogg"
-                subprocess.run(['ffmpeg', '-i', raw, processed], check=True)
-                print(f"Converted '{raw}' to '{processed}'")
-            except subprocess.CalledProcessError as e:
-                print(f"Error converting file {input_path}: {e}")
-        else:
-            # save the file without converting it
-            raw = f"{input_path}/{filename}"
-            processed = f"{output_path}/{title}{extension}"
-            os.rename(raw, processed)
-            print(f"Saved '{raw}' to '{processed}'")
+        try:
+            raw = f"{input_folder}/{filename}"
+            processed = f"{output_folder}/{title}.ogg"
+            subprocess.run(['ffmpeg', '-i', raw, processed], check=True)
+            print(f"Converted '{raw}' to '{processed}'")
+        except subprocess.CalledProcessError as e:
+            print(f"Error converting file {input_folder}: {e}")
 
 
-# Kick off the process by calling the function with the input and output directories
-rename_and_convert_files_in_directory("raw", "processed")
+convert("raw", "processed")
