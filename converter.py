@@ -1,3 +1,4 @@
+import argparse
 import os
 import re
 import subprocess
@@ -9,6 +10,7 @@ def alchemy_audio_converter(input_folder, output_folder, output_format='ogg', fa
     for filename in sorted(os.listdir(input_folder)):
         name, extension = os.path.splitext(filename)
         if extension.lower() not in COMMON_AUDIO_EXTENSIONS:
+            print(f"Skipping file '{filename}' as it is not a supported audio file.")
             continue
 
         input_path = os.path.join(input_folder, filename)
@@ -94,5 +96,16 @@ def run_ffmpeg(input_path, output_path, fade_duration=0, audio_length=0.0):
     except subprocess.CalledProcessError as e:
         print(f"Error converting file {input_path}: {e}")
 
-# Example usage
-alchemy_audio_converter('raw', 'processed', 'ogg', 5)
+def main():
+    parser = argparse.ArgumentParser(description='Batch convert audio files.')
+    parser.add_argument('input_folder', type=str, help='Path to the input folder containing raw audio files.')
+    parser.add_argument('output_folder', type=str, help='Path to the output folder for processed audio files.')
+    parser.add_argument('--output_format', type=str, default='ogg', help='Output audio format (default: ogg).')
+    parser.add_argument('--fade_duration', type=int, default=0, help='Duration of fade-in and fade-out in seconds (default: 0).')
+
+    args = parser.parse_args()
+
+    alchemy_audio_converter(args.input_folder, args.output_folder, args.output_format, args.fade_duration)
+
+if __name__ == "__main__":
+    main()
