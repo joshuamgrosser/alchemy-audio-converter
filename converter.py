@@ -71,7 +71,7 @@ def run_ffprobe(input_path):
 def run_ffmpeg(input_path, output_path, fade_duration=0, audio_length=0.0):
     try:
         # Prepare ffmpeg command
-        args = ['ffmpeg', '-i', input_path]
+        args = ['ffmpeg', '-y', '-i', input_path]
 
         # Add normalization filter
         filters = ['loudnorm']
