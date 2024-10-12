@@ -6,7 +6,7 @@ import subprocess
 # List of common audio file extensions
 COMMON_AUDIO_EXTENSIONS = ['.ogg', '.mp3', '.wav', '.flac', '.aac', '.m4a']
 
-def alchemy_audio_converter(input_folder, output_folder, output_format='ogg', fade_duration=0):
+def alchemy_audio_converter(input_folder, output_folder, output_format='ogg', fade_duration=0, sample_rate='128k'):
     for filename in sorted(os.listdir(input_folder)):
         name, extension = os.path.splitext(filename)
         if extension.lower() not in COMMON_AUDIO_EXTENSIONS:
@@ -29,7 +29,7 @@ def alchemy_audio_converter(input_folder, output_folder, output_format='ogg', fa
             output_path = os.path.join(output_folder, f"{title}.{output_format}")
 
             # convert the audio file
-            run_ffmpeg(input_path, output_path, fade_duration, duration)
+            run_ffmpeg(input_path, output_path, fade_duration, duration, sample_rate)
         except subprocess.CalledProcessError as ex:
             print(f"Error extracting metadata from file {input_path}: {ex}")
             continue
@@ -68,7 +68,7 @@ def run_ffprobe(input_path):
     ], stderr=subprocess.PIPE, stdout=subprocess.PIPE)
     return result
 
-def run_ffmpeg(input_path, output_path, fade_duration=0, audio_length=0.0):
+def run_ffmpeg(input_path, output_path, fade_duration=0, audio_length=0.0, sample_rate='128k'):
     try:
         # Prepare ffmpeg command
         args = ['ffmpeg', '-y', '-i', input_path]
@@ -87,6 +87,9 @@ def run_ffmpeg(input_path, output_path, fade_duration=0, audio_length=0.0):
         if filters:
             args.extend(['-af', ','.join(filters)])
 
+        # Set the audio sample rate
+        args.extend(['-ar', sample_rate])
+
         # Add output path
         args.append(output_path)
 
@@ -102,10 +105,11 @@ def main():
     parser.add_argument('output_folder', type=str, help='Path to the output folder for processed audio files.')
     parser.add_argument('--output_format', type=str, default='ogg', help='Output audio format (default: ogg).')
     parser.add_argument('--fade_duration', type=int, default=0, help='Duration of fade-in and fade-out in seconds (default: 0).')
+    parser.add_argument('--sample_rate', type=str, default='128k', help='Audio sample rate (default: 128k).')
 
     args = parser.parse_args()
 
-    alchemy_audio_converter(args.input_folder, args.output_folder, args.output_format, args.fade_duration)
+    alchemy_audio_converter(args.input_folder, args.output_folder, args.output_format, args.fade_duration, args.sample_rate)
 
 if __name__ == "__main__":
     main()
