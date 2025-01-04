@@ -70,6 +70,9 @@ def run_ffprobe(input_path):
 
 def run_ffmpeg(input_path, output_path, fade_duration=0, audio_length=0.0, sample_rate='128k'):
     try:
+        # Determine the number of CPU cores
+        threads = os.cpu_count()
+
         # Prepare ffmpeg command
         args = ['ffmpeg', '-y', '-i', input_path]
 
@@ -89,6 +92,9 @@ def run_ffmpeg(input_path, output_path, fade_duration=0, audio_length=0.0, sampl
 
         # Set the audio sample rate
         args.extend(['-ar', sample_rate])
+
+        # Set the number of threads
+        args.extend(['-threads', str(threads)])
 
         # Add output path
         args.append(output_path)
