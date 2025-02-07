@@ -6,7 +6,8 @@ import subprocess
 # List of common audio file extensions
 COMMON_AUDIO_EXTENSIONS = ['.ogg', '.mp3', '.wav', '.flac', '.aac', '.m4a']
 
-def alchemy_audio_converter(input_folder, output_folder, output_format='ogg', fade_duration=0, sample_rate='128k'):
+def alchemy_audio_converter(input_folder='raw', output_folder='processed', output_format='ogg', fade_duration=0,
+                            sample_rate='128k'):
     for filename in sorted(os.listdir(input_folder)):
         name, extension = os.path.splitext(filename)
         if extension.lower() not in COMMON_AUDIO_EXTENSIONS:
@@ -34,6 +35,7 @@ def alchemy_audio_converter(input_folder, output_folder, output_format='ogg', fa
             print(f"Error extracting metadata from file {input_path}: {ex}")
             continue
 
+
 def parse_title(filename, result):
     try:
         output_lines = result.stderr.decode('utf-8').strip().split('\n')
@@ -56,7 +58,7 @@ def parse_title(filename, result):
 
 
 def run_ffprobe(input_path):
-    result = subprocess.run([
+    args = [
         'ffprobe',
         '-v',
         'info',
@@ -65,24 +67,51 @@ def run_ffprobe(input_path):
         '-of',
         'default=noprint_wrappers=1:nokey=1',
         input_path
-    ], stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+    ]
+    print(f"Running ffprobe with arguments: {' '.join(args)}")
+    result = subprocess.run(args, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
     return result
+
+
+def detect_max_volume(input_path):
+    args = [
+        'ffmpeg',
+        '-i', input_path,
+        '-af', 'volumedetect',
+        '-vn',
+        '-f', 'null',
+        '-'
+    ]
+    print(f"Running ffmpeg for volume detection with arguments: {' '.join(args)}")
+    result = subprocess.run(args, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+
+    max_volume = None
+    for line in result.stderr.decode('utf-8').split('\n'):
+        if 'max_volume' in line:
+            max_volume = float(line.split()[-2].replace('dB', ''))
+            break
+    return max_volume
+
 
 def run_ffmpeg(input_path, output_path, fade_duration=0, audio_length=0.0, sample_rate='128k'):
     try:
         # Determine the number of CPU cores
         threads = os.cpu_count()
 
+        # Detect the maximum volume of the track
+        max_volume = detect_max_volume(input_path)
+        volume_adjustment = 0.0 - max_volume if max_volume < 0.0 else 0.0
+
         # Prepare ffmpeg command
         args = ['ffmpeg', '-y', '-i', input_path]
 
-        # Add normalization filter
-        filters = ['loudnorm']
+        # Add normalization and compression filters
+        filters = [f'volume=+{volume_adjustment}dB', 'acompressor']
 
         # Add fade-in and fade-out filters if specified
         if fade_duration > 0 and audio_length > 0:
             fade_in = f'afade=t=in:ss=0:d={fade_duration}'
-            fade_out = f'afade=t=out:st={audio_length-fade_duration}:d={fade_duration}'
+            fade_out = f'afade=t=out:st={audio_length - fade_duration}:d={fade_duration}'
             filters.append(fade_in)
             filters.append(fade_out)
 
@@ -100,22 +129,25 @@ def run_ffmpeg(input_path, output_path, fade_duration=0, audio_length=0.0, sampl
         args.append(output_path)
 
         # Run ffmpeg command
+        print(f"Running ffmpeg with arguments: {' '.join(args)}")
         subprocess.run(args, check=True)
         print(f"Converted '{input_path}' to '{output_path}'")
     except subprocess.CalledProcessError as e:
         print(f"Error converting file {input_path}: {e}")
 
+
 def main():
     parser = argparse.ArgumentParser(description='Batch convert audio files.')
-    parser.add_argument('input_folder', type=str, help='Path to the input folder containing raw audio files.')
-    parser.add_argument('output_folder', type=str, help='Path to the output folder for processed audio files.')
+    parser.add_argument('input_folder', type=str, nargs='?', default='raw', help='Path to the input folder containing raw audio files (default: raw).')
+    parser.add_argument('output_folder', type=str, nargs='?', default='processed', help='Path to the output folder for processed audio files (default: processed).')
     parser.add_argument('--output_format', type=str, default='ogg', help='Output audio format (default: ogg).')
     parser.add_argument('--fade_duration', type=int, default=0, help='Duration of fade-in and fade-out in seconds (default: 0).')
     parser.add_argument('--sample_rate', type=str, default='128k', help='Audio sample rate (default: 128k).')
 
     args = parser.parse_args()
 
-    alchemy_audio_converter(args.input_folder, args.output_folder, args.output_format, args.fade_duration, args.sample_rate)
+    alchemy_audio_converter(args.input_folder, args.output_folder, args.output_format, args.fade_duration,
+                            args.sample_rate)
 
 if __name__ == "__main__":
     main()
