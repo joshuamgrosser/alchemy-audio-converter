@@ -106,7 +106,7 @@ def run_ffmpeg(input_path, output_path, fade_duration=0, audio_length=0.0, sampl
         args = ['ffmpeg', '-y', '-i', input_path]
 
         # Add normalization and compression filters
-        filters = [f'volume=+{volume_adjustment}dB', 'acompressor']
+        filters = [f'volume=+{volume_adjustment}dB']
 
         # Add fade-in and fade-out filters if specified
         if fade_duration > 0 and audio_length > 0:
